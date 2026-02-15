@@ -1,0 +1,23 @@
+[workspace]
+resolver = "3"
+default-members = ["cube"]
+members = [
+    "blade-graphics",
+    "blade-util",
+    "blade-macros",
+    "blade-asset",
+    "cube",
+]
+
+[workspace.dependencies]
+bitflags = "2.10.0"
+bytemuck = "1.25.0"
+log = "0.4.29"
+mint = "0.5.9"
+naga = "27.0.3"
+slab = "0.4.12"
+web-sys = "0.3.85"
+profiling = "1.0.17"
+base64 = "0.22.1"
+choir = "0.7.0"
+nanorand = "0.8.0"

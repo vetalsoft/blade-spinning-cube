@@ -1,0 +1,15 @@
+[package]
+name = "cube"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+blade-graphics = { path = "../blade-graphics" }
+blade-util = { path = "../blade-util" }
+blade-macros = { path = "../blade-macros"}
+env_logger = "0.11.9"
+log = { workspace = true }
+glam = "0.32.0"
+winit = "0.30.12"
+naga = { workspace = true }
+bytemuck = { workspace = true, features = ["derive"] }

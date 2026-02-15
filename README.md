@@ -27,7 +27,7 @@
    ```bash
    git clone https://github.com/vetalsoft/blade-spinning-cube
    cd blade-cube-example
-   cargo run --release -p cube
+   cargo run --release
    ```
 ## 🤝 Благодарности
 Особая благодарность @kvark за библиотеку Blade, которая упрощает вход в мир низкоуровневой графики.
