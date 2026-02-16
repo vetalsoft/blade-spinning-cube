@@ -13,3 +13,4 @@ glam = "0.32.0"
 winit = "0.30.12"
 naga = { workspace = true }
 bytemuck = { workspace = true, features = ["derive"] }
+

@@ -109,7 +109,7 @@ naga = { workspace = true, features = ["glsl-out"] }
 
 [target.'cfg(all(gles, not(target_arch = "wasm32")))'.dependencies]
 egl = { package = "khronos-egl", version = "6.0", features = ["dynamic"] }
-libloading = { version = "0.9.0" }
+libloading = { version = "0.8.9" }
 
 [target.'cfg(all(target_arch = "wasm32"))'.dependencies]
 wasm-bindgen = "0.2.83"
