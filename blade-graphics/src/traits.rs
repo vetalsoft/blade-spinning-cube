@@ -25,58 +25,6 @@ pub trait ResourceDevice {
         desc: super::AccelerationStructureDesc,
     ) -> Self::AccelerationStructure;
     fn destroy_acceleration_structure(&self, acceleration_structure: Self::AccelerationStructure);
-
-    /// Создает текстуру глубины и соответствующее ей представление (View).
-    ///
-    /// Эта функция инкапсулирует типичный процесс подготовки буфера глубины для
-    /// прохода рендеринга (Render Pass). Использует формат `Depth32Float`
-    ///
-    /// # Аргументы
-    /// * `extent` — Размеры текстуры типа [`super::Extent`].
-    ///   Для стандартной 2D-текстуры глубины:
-    ///   - `width` и `height` должны соответствовать размерам окна или кадра.
-    ///   - `depth` должен быть равен 1.
-    /// * `name` - Базовое имя для отладки (View получит суффикс "_view").
-    ///
-    /// # Пример использования
-    /// ```
-    /// let (depth_tex, depth_view) = context.create_depth_target(window_extent, "main_depth");
-    /// ```
-    ///
-    /// # Примечание
-    /// При изменении размера окна (resize) старую текстуру и её View необходимо
-    /// предварительно уничтожить с помощью [`Self::destroy_texture_view`] и [`Self::destroy_texture`].
-    fn create_depth_target(
-        &self,
-        extent: super::Extent,
-        name: &str,
-    ) -> (Self::Texture, Self::TextureView) {
-        let format = super::TextureFormat::Depth32Float;
-        
-        let texture = self.create_texture(super::TextureDesc {
-            name,
-            format,
-            size: extent,
-            dimension: super::TextureDimension::D2,
-            array_layer_count: 1,
-            mip_level_count: 1,
-            usage: super::TextureUsage::TARGET,
-            sample_count: 1,
-            external: None,
-        });
-
-        let view = self.create_texture_view(
-            texture,
-            super::TextureViewDesc {
-                name: &format!("{}-view", name),
-                format,
-                dimension: super::ViewDimension::D2,
-                subresources: &super::TextureSubresources::default(),
-            },
-        );
-
-        (texture, view)
-    }
 }
 
 pub trait ShaderDevice {
