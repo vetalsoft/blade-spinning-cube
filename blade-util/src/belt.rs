@@ -1,6 +1,30 @@
 use blade_graphics as gpu;
 use std::mem;
 
+/// Вспомогательная функция для создания и заполнения статического буфера без unsafe в вызывающем коде.
+pub fn create_static_buffer<T: bytemuck::Pod>(
+    gpu: &gpu::Context,
+    name: &str,
+    data: &[T],
+) -> gpu::Buffer {
+    let size = std::mem::size_of_val(data) as u64;
+    let buffer = gpu.create_buffer(gpu::BufferDesc {
+        name,
+        size,
+        memory: gpu::Memory::Shared,
+    });
+
+    // Безопасно получаем доступ к памяти через слайс
+    unsafe {
+        let ptr = buffer.data() as *mut T;
+        let dst = std::slice::from_raw_parts_mut(ptr, data.len());
+        dst.copy_from_slice(data);
+    }
+
+    gpu.sync_buffer(buffer);
+    buffer
+}
+
 struct ReusableBuffer {
     raw: gpu::Buffer,
     size: u64,

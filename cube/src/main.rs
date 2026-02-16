@@ -1,15 +1,74 @@
+// use blade_graphics::traits::ResourceDevice;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowAttributes, WindowId};
 
-use blade_graphics::{self as gpu, Vertex};
+use blade_graphics::{self as gpu, Vertex, TextureFormat::Depth32Float};
+use blade_util::create_static_buffer;
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec3};
 use std::time::Instant;
 
 use blade_graphics::background_color_vulkan::set_background_color;
+
+/// Макрос для упрощения работы с буфером глубины и дублирование кода в функциях:
+///   [`CubeApp::new`] и [`CubeApp::resize`]
+///
+/// # Варианты использования:
+///
+/// * `depth!(desc size)` — генерирует [`gpu::TextureDesc`] на основе переданного размера.
+/// * `depth!(view_desc)` — генерирует [`gpu::TextureViewDesc`] со стандартными параметрами.
+/// * `depth!(create context, size)` — выполняет полный цикл инициализации: создает 
+///   текстуру и вьюху, возвращает кортеж `(Texture, TextureView)`.
+///
+/// # Примеры:
+/// ```
+/// // Полная инициализация одной строкой.
+/// let (texture, view) = depth!(create context, window_size);
+/// 
+/// // Или ручное управление при изменении размера окна.
+/// self.depth_texture = context.create_texture(depth!(desc new_size));
+/// ```
+macro_rules! depth {
+    // Создаём TextureDesc (передаем только размер)
+    (desc $size:expr) => {
+        gpu::TextureDesc {
+            name: "depth_texture",
+            format: Depth32Float,
+            size: gpu::Extent {
+                width: $size.width,
+                height: $size.height,
+                depth: 1,
+            },
+            dimension: gpu::TextureDimension::D2,
+            array_layer_count: 1,
+            mip_level_count: 1,
+            usage: gpu::TextureUsage::TARGET,
+            sample_count: 1,
+            external: None,
+        }
+    };
+
+    // Создаём TextureViewDesc (без аргументов)
+    (view_desc) => {
+        gpu::TextureViewDesc {
+            name: "depth_view",
+            format: gpu::TextureFormat::Depth32Float,
+            dimension: gpu::ViewDimension::D2,
+            subresources: &gpu::TextureSubresources::default(),
+        }
+    };
+
+    // Создаём всё (контекст + размер) -> возвращает (Texture, View)
+    (create $context:expr, $size:expr) => {{
+        let texture = $context.create_texture(depth!(desc $size));
+        let view = $context.create_texture_view(texture, depth!(view_desc));
+        (texture, view)
+    }};
+}
+
 
 // Вершинные данные с нормалями
 #[repr(C)]
@@ -134,16 +193,14 @@ impl CubeApp {
     }
 
     fn new(window: &Window) -> Self {
-        let context = unsafe {
-            gpu::Context::init(gpu::ContextDesc {
-                validation: cfg!(debug_assertions),
-                presentation: true,
-                overlay: false,
-                capture: false,
-                timing: false,
-                device_id: 0,
-            })
-        }.unwrap();
+        let context = gpu::Context::init(gpu::ContextDesc {
+            validation: cfg!(debug_assertions),
+            presentation: true,
+            overlay: false,
+            capture: false,
+            timing: false,
+            device_id: 0,
+        }).unwrap();
 
         let window_size = window.inner_size();
         let surface = context
@@ -158,62 +215,13 @@ impl CubeApp {
 
         let uniform_layout = <CubeUniforms as gpu::ShaderData>::layout();
 
-        // Вершинный буфер
-        let vertex_buf = context.create_buffer(gpu::BufferDesc {
-            name: "cube_vertex",
-            size: (VERTICES.len() * std::mem::size_of::<VertexData>()) as u64,
-            memory: gpu::Memory::Shared,
-        });
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                VERTICES.as_ptr(),
-                vertex_buf.data() as *mut VertexData,
-                VERTICES.len(),
-            );
-        }
+        let vertex_buf = create_static_buffer(&context, "cube_vertex", VERTICES);
         context.sync_buffer(vertex_buf);
 
-        // Индексный буфер
-        let index_buf = context.create_buffer(gpu::BufferDesc {
-            name: "cube_index",
-            size: (INDICES.len() * std::mem::size_of::<u16>()) as u64,
-            memory: gpu::Memory::Shared,
-        });
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                INDICES.as_ptr(),
-                index_buf.data() as *mut u16,
-                INDICES.len(),
-            );
-        }
+        let index_buf = create_static_buffer(&context, "cube_index", INDICES);
         context.sync_buffer(index_buf);
 
-        // Текстура глубины
-        let depth_texture = context.create_texture(gpu::TextureDesc {
-            name: "depth_texture",
-            format: gpu::TextureFormat::Depth32Float,
-            size: gpu::Extent {
-                width: window_size.width,
-                height: window_size.height,
-                depth: 1,
-            },
-            dimension: gpu::TextureDimension::D2,
-            array_layer_count: 1,
-            mip_level_count: 1,
-            usage: gpu::TextureUsage::TARGET,
-            sample_count: 1,
-            external: None,
-        });
-
-        let depth_view = context.create_texture_view(
-            depth_texture,
-            gpu::TextureViewDesc {
-                name: "depth_view",
-                format: gpu::TextureFormat::Depth32Float,
-                dimension: gpu::ViewDimension::D2,
-                subresources: &Default::default(),
-            },
-        );
+        let (depth_texture, depth_view) = depth!(create context, window_size);
 
         // Пайплайн
         let pipeline = context.create_render_pipeline(gpu::RenderPipelineDesc {
@@ -313,32 +321,8 @@ impl CubeApp {
         // Пересоздаём текстуру глубины
         self.context.destroy_texture_view(self.depth_view);
         self.context.destroy_texture(self.depth_texture);
-        
-        self.depth_texture = self.context.create_texture(gpu::TextureDesc {
-            name: "depth_texture",
-            format: gpu::TextureFormat::Depth32Float,
-            size: gpu::Extent {
-                width: size.width,
-                height: size.height,
-                depth: 1,
-            },
-            dimension: gpu::TextureDimension::D2,
-            array_layer_count: 1,
-            mip_level_count: 1,
-            usage: gpu::TextureUsage::TARGET,
-            sample_count: 1,
-            external: None,
-        });
 
-        self.depth_view = self.context.create_texture_view(
-            self.depth_texture,
-            gpu::TextureViewDesc {
-                name: "depth_view",
-                format: gpu::TextureFormat::Depth32Float,
-                dimension: gpu::ViewDimension::D2,
-                subresources: &Default::default(),
-            },
-        );
+        (self.depth_texture, self.depth_view) = depth!(create self.context, size);
 
         let config = Self::make_surface_config(size);
         self.context.reconfigure_surface(&mut self.surface, config);
@@ -364,7 +348,7 @@ impl CubeApp {
         let model = Mat4::from_rotation_y(self.state.cube_rotation);
         let mvp = projection * view * model;
 
-        // Параметры освещения (позицию можжно измнять с клавиатуры)
+        // Параметры освещения (позицию можжно изменять с клавиатуры)
         let uniforms = CubeUniforms {
             globals: Globals {
                 mvp_matrix: mvp.to_cols_array_2d(),

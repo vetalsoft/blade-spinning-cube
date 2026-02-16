@@ -297,7 +297,7 @@ unsafe fn inspect_adapter(
 }
 
 impl super::Context {
-    pub unsafe fn init(desc: crate::ContextDesc) -> Result<Self, NotSupportedError> {
+    pub fn init(desc: crate::ContextDesc) -> Result<Self, NotSupportedError> {
         let entry = match unsafe { ash::Entry::load() } {
             Ok(entry) => entry,
             Err(err) => {

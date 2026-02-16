@@ -1,14 +1,14 @@
-// Crutch! Only works for Vulkan.
+// Backend-specific workaround for Vulkan background colors.
 // -----------------------------
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::OnceLock;
 
 static VULKAN_CUSTOM_BACKGROUND_COLOR: OnceLock<AtomicU32> = OnceLock::new();
 
-/// Crutch!
-/// Sets the background color.
-/// Only has an effect if TextureColor::OpaqueBlack
-/// is selected (Vulkan only).
+/// Platform-specific workaround for setting the background color.
+/// 
+/// Currently, this only affects the Vulkan backend when 
+/// `TextureColor::OpaqueBlack` is selected.
 pub fn set_background_color(r: u8, g: u8, b: u8, a: u8) {
     let color = (r as u32) | ((g as u32) << 8) | ((b as u32) << 16) | ((a as u32) << 24);
     VULKAN_CUSTOM_BACKGROUND_COLOR
@@ -16,6 +16,8 @@ pub fn set_background_color(r: u8, g: u8, b: u8, a: u8) {
     .store(color, Ordering::Relaxed);
 }
 
+/// Retrieves the current background color as normalized RGBA floats.
+/// Default is opaque black (0xFF000000).
 pub(crate) fn get_background_color() -> [f32; 4] {
     let color = VULKAN_CUSTOM_BACKGROUND_COLOR.get_or_init(|| AtomicU32::new(0xFF000000)).load(Ordering::Relaxed);
     [
